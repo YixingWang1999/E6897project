@@ -1,0 +1,3 @@
+/Users/yixingwang/Desktop/sav's'dvc/cmake-build-debug/CMakeFiles/hot_spot.dir
+/Users/yixingwang/Desktop/sav's'dvc/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/yixingwang/Desktop/sav's'dvc/cmake-build-debug/CMakeFiles/rebuild_cache.dir
