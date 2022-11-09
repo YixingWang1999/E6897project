@@ -22,7 +22,7 @@
 #define HUGE_PAGE_SIZE (1UL << 21UL)  // 2MB
 #define ONE_NODE_MEM_SIZE (1UL << 33UL)  // 8G
 #define DATA_SIZE (1UL << 12UL) // 4K
-#define ONE_NODE_CPU_SETS 9 // todo: need to change?
+#define ONE_NODE_CPU_SETS 10
 #define SKIP_SIZE 1
 
 using namespace std;
@@ -45,7 +45,7 @@ static inline void BUG_ON(bool cond) {
     }
 }
 
-uint64_t *mem_alloc_set_numa(long num_page, int node=0, bool huge=false) {
+uint64_t *mem_alloc_set_numa(long num_page, int node, bool huge) {
     uint64_t page_size = huge ? HUGE_PAGE_SIZE : DATA_SIZE;
     size_t size = num_page * page_size;
     uint64_t *ptr = static_cast<uint64_t *>(aligned_alloc(page_size, size));
@@ -56,7 +56,6 @@ uint64_t *mem_alloc_set_numa(long num_page, int node=0, bool huge=false) {
     }
     numa_tonode_memory(ptr, size, node);
     memset(ptr, 0, size);
-    // cout << ptr << " ";
     return ptr;
 }
 
@@ -68,7 +67,6 @@ void inline access_page(volatile uint64_t &tmp, uint64_t *start, long &cur_num_o
         tmp += start[k];
     }
     cur_num_op += 1;
-    // cout << "tmp: " << tmp << endl;
 }
 
 uint64_t calculate_start_index(uint64_t cur_start_page, bool hot) {
@@ -109,41 +107,24 @@ uint64_t *pick_start(bool hot) {
         local_small_buf = local_cold_buf;
         remote_small_buf = remote_cold_buf;
     }
-    // if (!prefix_sum[3])
-    //     return NULL;
     uint64_t start_page = rand() % prefix_sum[3];
-    // printf("start_page %d\n", start_page);
     if (start_page < prefix_sum[0]) {
-        // if (!pages[0])
-        //     return NULL;
         uint64_t cur_start_page = rand() % pages[0];
-        // cout << "local small: " << local_small_buf + cur_start_page * DATA_SIZE / sizeof(local_small_buf) << endl;
-        return local_small_buf + cur_start_page * DATA_SIZE / sizeof(local_small_buf);
+ return local_small_buf + cur_start_page * DATA_SIZE / sizeof(local_small_buf);
     } else if (start_page < prefix_sum[1]) {
-        // if (!pages[1])
-        //     return NULL;
         uint64_t cur_start_page = rand() % pages[1]; // the cur_start_page is with unit 4K already
         uint64_t start_index = calculate_start_index(cur_start_page, hot);
         if (start_index > ONE_NODE_MEM_SIZE / sizeof(uint64_t))
             return NULL;
-        // cout << start_index << endl;
-        // cout << "local huge: " << local_huge_buf + start_index << endl;
         return local_huge_buf + start_index;
     } else if (start_page < prefix_sum[2]) {
-        // if (!pages[2])
-        //     return NULL;
         uint64_t cur_start_page = rand() % pages[2];
-        // cout << "remote small: " << remote_small_buf + cur_start_page * DATA_SIZE / sizeof(remote_small_buf) << endl;
-        return remote_small_buf + cur_start_page * DATA_SIZE / sizeof(remote_small_buf);
+return remote_small_buf + cur_start_page * DATA_SIZE / sizeof(remote_small_buf);
     } else {
-        // if (!pages[3])
-        //     return NULL;
         uint64_t cur_start_page = rand() % pages[3];
         uint64_t start_index = calculate_start_index(cur_start_page, hot);
         if (start_index > ONE_NODE_MEM_SIZE / sizeof(uint64_t))
             return NULL;
-        // cout << start_index << endl;
-        // cout << "remote huge: " << remote_huge_buf + start_index << endl;
         return remote_huge_buf + start_index;
     }
 }
@@ -154,6 +135,7 @@ void thread_fn(int thread_index, long num_op,
     cpu_set_t set;
     CPU_ZERO(&set);
     CPU_SET(1 + thread_index, &set);
+    assert(1 + thread_index < ONE_NODE_CPU_SETS);
     ret = sched_setaffinity(0, sizeof(set), &set);
     BUG_ON(ret != 0);
 
@@ -163,17 +145,14 @@ void thread_fn(int thread_index, long num_op,
     if (hot_ratio_ >= 0.1 && hot_ratio_ <= 0.9) {
         while (!(*terminate) && cur_num_op < num_op) {
             bool hot = (rand() % 10 < 9); // 0-8 hot, 9 cold
-            // cout << hot << endl;
             volatile uint64_t tmp = 0;
             access_page(tmp, pick_start(hot), cur_num_op);
-            // printf("num_op: %ld\n", cur_num_op);
         }
     } else if (hot_ratio_ > 0.9) {
         while (!(*terminate) && cur_num_op < num_op) {
             bool hot = (rand() % 10 >= 0);
             volatile uint64_t tmp = 0;
             access_page(tmp, pick_start(hot), cur_num_op);
-            // printf("num_op: %ld\n", cur_num_op);
         }
     }
     else {
@@ -181,7 +160,6 @@ void thread_fn(int thread_index, long num_op,
             bool hot = (rand() % 10 < 0); //always = false when there is no hot pages
             volatile uint64_t tmp = 0;
             access_page(tmp, pick_start(hot), cur_num_op);
-            // printf("num_op: %ld\n", cur_num_op);
         }
     }
 
@@ -214,27 +192,27 @@ void update_hot_cold_pages(void) {
         }
     }
 
-    logfile << "hot pages: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << hot_pages[i] << " ";
-    logfile << endl;
+    // logfile << "hot pages: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << hot_pages[i] << " ";
+    // logfile << endl;
 
-    logfile << "hot prefix: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << hot_prefix_sum[i] << " ";
-    logfile << endl;
+    // logfile << "hot prefix: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << hot_prefix_sum[i] << " ";
+    // logfile << endl;
 
-    logfile << "cold pages: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << cold_pages[i] << " ";
-    logfile << endl;
+    // logfile << "cold pages: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << cold_pages[i] << " ";
+    // logfile << endl;
 
-    logfile << "cold prefix: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << cold_prefix_sum[i] << " ";
-    logfile << endl;
+    // logfile << "cold prefix: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << cold_prefix_sum[i] << " ";
+    // logfile << endl;
 
-    logfile << endl;
+    // logfile << endl;
 }
 
 void calculate_pages(double split_ratio) {
@@ -243,7 +221,6 @@ void calculate_pages(double split_ratio) {
     small_cold_pages = small_pages - small_hot_pages;
 
     uint64_t local_hot_mem = min(ONE_NODE_MEM_SIZE, small_hot_pages * DATA_SIZE);
-    // cout << "aaaaaa: " << local_hot_mem << " " << ONE_NODE_MEM_SIZE - local_hot_mem << endl;
     local_hot_pages = local_hot_mem / DATA_SIZE;
     remote_hot_pages = max(small_hot_pages - local_hot_pages, uint64_t(0));
 
@@ -260,12 +237,12 @@ void calculate_pages(double split_ratio) {
     local_huge_to_small_cold = local_huge_pages * HUGE_PAGE_SIZE * (1 - hot_ratio_) / DATA_SIZE;
     remote_huge_to_small_cold = remote_huge_pages * HUGE_PAGE_SIZE * (1 - hot_ratio_) / DATA_SIZE;
 
-    logfile << "small_pages: " <<
-        small_pages << " small_hot: " << small_hot_pages << " small_cold:" << small_cold_pages << "\nlocal_hot: " 
-        << local_hot_pages << " remote_hot: " << remote_hot_pages << " local_cold: " << local_cold_pages << " remote_cold: " << remote_cold_pages << "\nhuge_pages: " << huge_pages << " local_huge: "
-        << local_huge_pages << " remote_huge: " <<remote_huge_pages << "\nlocal_huge_to_small_hot: " << local_huge_to_small_hot
-        << " local_huge_to_small_cold: " << local_huge_to_small_cold << "\nremote_huge_to_small_hot: " 
-        <<remote_huge_to_small_hot << " remote_huge_to_small_cold: " << remote_huge_to_small_cold << endl << endl;
+    // logfile << "small_pages: " <<
+    //     small_pages << " small_hot: " << small_hot_pages << " small_cold:" << small_cold_pages << "\nlocal_hot: " 
+    //     << local_hot_pages << " remote_hot: " << remote_hot_pages << " local_cold: " << local_cold_pages << " remote_cold: " << remote_cold_pages << "\nhuge_pages: " << huge_pages << " local_huge: "
+    //     << local_huge_pages << " remote_huge: " <<remote_huge_pages << "\nlocal_huge_to_small_hot: " << local_huge_to_small_hot
+    //     << " local_huge_to_small_cold: " << local_huge_to_small_cold << "\nremote_huge_to_small_hot: " 
+    //     <<remote_huge_to_small_hot << " remote_huge_to_small_cold: " << remote_huge_to_small_cold << endl << endl;
     
     assert(small_pages * DATA_SIZE + huge_pages * HUGE_PAGE_SIZE <= ONE_NODE_MEM_SIZE * 2);
     assert(small_pages * DATA_SIZE + huge_pages * HUGE_PAGE_SIZE >= ONE_NODE_MEM_SIZE * 2 - HUGE_PAGE_SIZE * 2 - DATA_SIZE * 2);
@@ -282,9 +259,8 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
     hot_ratio_ = hot_ratio;
     // printf("num_op is %ld, num_thread is %ld, split_ratio is %lf, hot_ratio is %lf\n",
     //        num_op, num_thread, split_ratio, hot_ratio);
-    printf("%lf | %lf ", split_ratio, hot_ratio_);
+    printf("%ld | %lf | %lf ", num_op, split_ratio, hot_ratio_);
 
-    // todo: asser num_thread < cores on single CPU
 
     int ret;
     cpu_set_t set;
@@ -299,27 +275,12 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
 
     calculate_pages(split_ratio);
 
-    // cout << "pointers: ";
-
     local_hot_buf = mem_alloc_set_numa(local_hot_pages, 0, false);
     local_cold_buf = mem_alloc_set_numa(local_cold_pages, 0, false);
     local_huge_buf = mem_alloc_set_numa(local_huge_pages, 0, true);
     remote_hot_buf = mem_alloc_set_numa(remote_hot_pages, 1, false);
     remote_cold_buf = mem_alloc_set_numa(remote_cold_pages, 1, false);
     remote_huge_buf = mem_alloc_set_numa(remote_huge_pages, 1, true);
-
-    // cout << endl;
-
-    // cout << sizeof(local_hot_buf) << endl;
-    // exit(0);
-
-    // cout << local_hot_buf << local_cold_buf << local_huge_buf 
-    //     << remote_cold_buf << remote_huge_buf << endl;
-
-    // printf("pointers: %ln, %ln, %ln, %ln, %ln\n",
-    //     local_hot_buf, local_cold_buf, local_huge_buf, 
-    //     remote_cold_buf, remote_huge_buf);
-
 
     fflush(stdout);
 
@@ -355,10 +316,12 @@ int main(int argc, char *argv[]) {
     double split_ratios[] = {0.0 ,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     double hot_ratios[] = {0.0 ,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     long num_threads[] = {};
+    // long num_ops[] = {10000000, 20000000, 40000000, 80000000, 100000000};
 
     BUG_ON(argc != 3);
 
     int split_idx= atoi(argv[1]), hot_idx = atoi(argv[2]);
+    // int op_idx= 0, hot_idx = atoi(argv[2]);
     // cout << split_idx << hot_idx << endl;
 
     long num_op, num_thread;
