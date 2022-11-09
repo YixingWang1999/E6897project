@@ -1,11 +1,11 @@
-small_pages: 838860 small_hot: 335544 small_cold:503316
-local_hot: 335544 remote_hot: 0 local_cold: 328 remote_cold: 502988
-huge_pages: 6553 local_huge: 3440 remote_huge: 3113
-local_huge_to_small_hot: 704512 local_huge_to_small_cold: 1056768
-remote_huge_to_small_hot: 637542 remote_huge_to_small_cold: 956313
+small_pages: 1677721 small_hot: 0 small_cold:1677721
+local_hot: 0 remote_hot: 0 local_cold: 0 remote_cold: 1677721
+huge_pages: 4915 local_huge: 4096 remote_huge: 819
+local_huge_to_small_hot: 0 local_huge_to_small_cold: 2097152
+remote_huge_to_small_hot: 0 remote_huge_to_small_cold: 419328
 
-hot pages: 335544 704512 0 637542 
-hot prefix: 335544 1040056 1040056 1677598 
-cold pages: 328 1056768 502988 956313 
-cold prefix: 328 1057096 1560084 2516397 
+hot pages: 0 0 0 0 
+hot prefix: 0 0 0 0 
+cold pages: 0 2097152 1677721 419328 
+cold prefix: 0 2097152 3774873 4194201 
 
