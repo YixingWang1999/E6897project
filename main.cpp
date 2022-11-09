@@ -366,7 +366,7 @@ int main(int argc, char *argv[]) {
 
     logfile.open("log.txt");
 
-    num_op = 1000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
+    num_op = 10000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
         // printf("%ld\n", ONE_NODE_MEM_SIZE / sizeof(uint64_t));
     main_experiment(num_op, num_thread, split_ratio, hot_ratio);
 
