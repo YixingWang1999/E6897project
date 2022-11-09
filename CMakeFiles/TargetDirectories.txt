@@ -1,0 +1,3 @@
+/users/Yixing/midterm/CMakeFiles/rebuild_cache.dir
+/users/Yixing/midterm/CMakeFiles/edit_cache.dir
+/users/Yixing/midterm/CMakeFiles/test.dir
