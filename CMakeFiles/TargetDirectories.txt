@@ -1,3 +1,3 @@
-/users/Yixing/midterm/CMakeFiles/rebuild_cache.dir
-/users/Yixing/midterm/CMakeFiles/edit_cache.dir
-/users/Yixing/midterm/CMakeFiles/test.dir
+/users/Yixing/documents/E6897project/CMakeFiles/test.dir
+/users/Yixing/documents/E6897project/CMakeFiles/edit_cache.dir
+/users/Yixing/documents/E6897project/CMakeFiles/rebuild_cache.dir
