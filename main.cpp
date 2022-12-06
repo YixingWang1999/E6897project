@@ -40,6 +40,7 @@ const int64_t SKIP_SIZE = 1L;
 using namespace std;
 
 double hot_ratio_;
+unsigned int *seeds;
 int64_t *local_hot_buf, *local_cold_buf, *local_huge_buf;
 int64_t *remote_hot_buf, *remote_cold_buf, *remote_huge_buf;
 int64_t small_pages, small_cold_pages, small_hot_pages;
@@ -126,40 +127,30 @@ int64_t calculate_start_index(int64_t cur_start_page, bool hot) {
     return start_index;
 }
 
-int64_t *pick_start(bool hot) {
-    int64_t *pages, *prefix_sum;
-    int64_t *local_small_buf, *remote_small_buf;
-    if (hot) {
-        pages = hot_pages;
-        prefix_sum = hot_prefix_sum;
-        local_small_buf = local_hot_buf;
-        remote_small_buf = remote_hot_buf;
-    }
-    else {
-        pages = cold_pages;
-        prefix_sum = cold_prefix_sum;
-        local_small_buf = local_cold_buf;
-        remote_small_buf = remote_cold_buf;
-    }
-    int64_t start_page = rand() % prefix_sum[3];
-    if (start_page < prefix_sum[0]) {
-        int64_t cur_start_page = rand() % pages[0];
-        return local_small_buf + cur_start_page * DATA_SIZE / sizeof(local_small_buf);
-    } else if (start_page < prefix_sum[1]) {
-        int64_t cur_start_page = rand() % pages[1]; // the cur_start_page is with unit 4K already
-        int64_t start_index = calculate_start_index(cur_start_page, hot);
+int64_t *pick_start_hot(int thread_idx) {
+    int64_t start_page = rand_r(seeds + thread_idx) % hot_prefix_sum[3];
+    if (start_page < hot_prefix_sum[0]) {
+        // int64_t cur_start_page = rand() % pages[0];
+        int64_t cur_start_page = start_page - 0;
+        return local_hot_buf + cur_start_page * DATA_SIZE / sizeof(local_hot_buf);
+    } else if (start_page < hot_prefix_sum[1]) {
+        // int64_t cur_start_page = rand() % pages[1]; // the cur_start_page is with unit 4K already
+        int64_t cur_start_page = start_page - hot_prefix_sum[0];
+        int64_t start_index = calculate_start_index(cur_start_page, true);
         if (start_index < 0)
             return NULL;
         // cout<< endl << "hh" << start_index / DATA_SIZE << endl;
         // if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
         //     return NULL;
         return local_huge_buf + start_index / sizeof(local_huge_buf);
-    } else if (start_page < prefix_sum[2]) {
-        int64_t cur_start_page = rand() % pages[2];
-        return remote_small_buf + cur_start_page * DATA_SIZE / sizeof(remote_small_buf);
+    } else if (start_page < hot_prefix_sum[2]) {
+        // int64_t cur_start_page = rand() % pages[2];
+        int64_t cur_start_page = start_page - hot_prefix_sum[1];
+        return remote_hot_buf + cur_start_page * DATA_SIZE / sizeof(remote_hot_buf);
     } else {
-        int64_t cur_start_page = rand() % pages[3];
-        int64_t start_index = calculate_start_index(cur_start_page, hot);
+        // int64_t cur_start_page = rand() % pages[3];
+        int64_t cur_start_page = start_page - hot_prefix_sum[2];
+        int64_t start_index = calculate_start_index(cur_start_page, true);
         if (start_index < 0)
             return NULL;
         // cout<< endl << "ll" << start_index / DATA_SIZE << endl;
@@ -168,6 +159,94 @@ int64_t *pick_start(bool hot) {
         return remote_huge_buf + start_index / sizeof(remote_huge_buf);
     }
 }
+
+
+int64_t *pick_start_cold(int thread_idx) {
+    int64_t start_page = rand_r(seeds + thread_idx) % cold_prefix_sum[3];
+    if (start_page < cold_prefix_sum[0]) {
+        // int64_t cur_start_page = rand() % pages[0];
+        int64_t cur_start_page = start_page - 0;
+        return local_cold_buf + cur_start_page * DATA_SIZE / sizeof(local_cold_buf);
+    } else if (start_page < cold_prefix_sum[1]) {
+        // int64_t cur_start_page = rand() % pages[1]; // the cur_start_page is with unit 4K already
+        int64_t cur_start_page = start_page - cold_prefix_sum[0];
+        int64_t start_index = calculate_start_index(cur_start_page, false);
+        if (start_index < 0)
+            return NULL;
+        // cout<< endl << "hh" << start_index / DATA_SIZE << endl;
+        // if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+        //     return NULL;
+        return local_huge_buf + start_index / sizeof(local_huge_buf);
+    } else if (start_page < cold_prefix_sum[2]) {
+        // int64_t cur_start_page = rand() % pages[2];
+        int64_t cur_start_page = start_page - cold_prefix_sum[1];
+        return remote_cold_buf + cur_start_page * DATA_SIZE / sizeof(remote_cold_buf);
+    } else {
+        // int64_t cur_start_page = rand() % pages[3];
+        int64_t cur_start_page = start_page - cold_prefix_sum[2];
+        int64_t start_index = calculate_start_index(cur_start_page, false);
+        if (start_index < 0)
+            return NULL;
+        // cout<< endl << "ll" << start_index / DATA_SIZE << endl;
+        // if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+        //     return NULL;
+        return remote_huge_buf + start_index / sizeof(remote_huge_buf);
+    }
+}
+
+int64_t *pick_start(bool hot, int thread_index) {
+    if (hot)
+        return pick_start_hot(thread_index);
+    else
+        return pick_start_cold(thread_index);
+}
+
+// int64_t *pick_start(bool hot) {
+//     int64_t *pages, *prefix_sum;
+//     int64_t *local_small_buf, *remote_small_buf;
+//     if (hot) {
+//         pages = hot_pages;
+//         prefix_sum = hot_prefix_sum;
+//         local_small_buf = local_hot_buf;
+//         remote_small_buf = remote_hot_buf;
+//     }
+//     else {
+//         pages = cold_pages;
+//         prefix_sum = cold_prefix_sum;
+//         local_small_buf = local_cold_buf;
+//         remote_small_buf = remote_cold_buf;
+//     }
+//     int64_t start_page = rand() % prefix_sum[3];
+//     if (start_page < prefix_sum[0]) {
+//         // int64_t cur_start_page = rand() % pages[0];
+//         int64_t cur_start_page = start_page - 0;
+//         return local_small_buf + cur_start_page * DATA_SIZE / sizeof(local_small_buf);
+//     } else if (start_page < prefix_sum[1]) {
+//         // int64_t cur_start_page = rand() % pages[1]; // the cur_start_page is with unit 4K already
+//         int64_t cur_start_page = start_page - prefix_sum[0];
+//         int64_t start_index = calculate_start_index(cur_start_page, hot);
+//         if (start_index < 0)
+//             return NULL;
+//         // cout<< endl << "hh" << start_index / DATA_SIZE << endl;
+//         // if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+//         //     return NULL;
+//         return local_huge_buf + start_index / sizeof(local_huge_buf);
+//     } else if (start_page < prefix_sum[2]) {
+//         // int64_t cur_start_page = rand() % pages[2];
+//         int64_t cur_start_page = start_page - prefix_sum[1];
+//         return remote_small_buf + cur_start_page * DATA_SIZE / sizeof(remote_small_buf);
+//     } else {
+//         // int64_t cur_start_page = rand() % pages[3];
+//         int64_t cur_start_page = start_page - prefix_sum[2];
+//         int64_t start_index = calculate_start_index(cur_start_page, hot);
+//         if (start_index < 0)
+//             return NULL;
+//         // cout<< endl << "ll" << start_index / DATA_SIZE << endl;
+//         // if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+//         //     return NULL;
+//         return remote_huge_buf + start_index / sizeof(remote_huge_buf);
+//     }
+// }
 
 void thread_fn(int thread_index, long num_op,
                volatile bool *terminate, double *result_arr) {
@@ -189,21 +268,21 @@ void thread_fn(int thread_index, long num_op,
             // bool hot = (rand() % 10 < 9); // 0-8 hot, 9 cold
             hot = (cur_num_op % 10 < 9); 
             // volatile int8_t tmp = 0;
-            access_page(tmp, pick_start(hot), cur_num_op);
+            access_page(tmp, pick_start(hot, thread_index), cur_num_op);
         }
     } else if (hot_ratio_ > 0.9) {
         while (!(*terminate) && cur_num_op < num_op) {
             // bool hot = (rand() % 10 >= 0);
             hot = (cur_num_op % 10 >= 0);
             // volatile int8_t tmp = 0;
-            access_page(tmp, pick_start(hot), cur_num_op);
+            access_page(tmp, pick_start(hot, thread_index), cur_num_op);
         }
     }
     else { // hot_ratio is 0
         while (!(*terminate) && cur_num_op < num_op) {
             hot = (cur_num_op % 10 < 0); //always = false when there is no hot pages
             // volatile int8_t tmp = 0;
-            access_page(tmp, pick_start(hot), cur_num_op);
+            access_page(tmp, pick_start(hot, thread_index), cur_num_op);
         }
     }
 
@@ -407,13 +486,13 @@ int main(int argc, char *argv[]) {
     double split_ratios[] = {0.0 ,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     double hot_ratios[] = {0.0 ,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     long num_threads[] = {};
-    // long num_ops[] = {10000000, 20000000, 40000000, 80000000, 100000000};
+    long num_ops[] = {500000, 800000, 1000000, 2000000, 4000000};
     // bool flag = (unsigned int)(0) <= (unsigned int)(2);
     // cout << flag << endl;
     
-    BUG_ON(argc != 4);
+    BUG_ON(argc != 5);
 
-    unsigned int split_idx= atoi(argv[1]), hot_idx = atoi(argv[2]), mode = atoi(argv[3]);
+    unsigned int split_idx= atoi(argv[1]), hot_idx = atoi(argv[2]), mode = atoi(argv[3]), op_idx = atoi(argv[4]);
     // int op_idx= 0, hot_idx = atoi(argv[2]);
     // cout << split_idx << hot_idx << endl;
     // cout << "hello" << endl;
@@ -423,8 +502,12 @@ int main(int argc, char *argv[]) {
     long num_op, num_thread;
     double split_ratio, hot_ratio; // the maximum is 1
 
-    num_op = 1000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
+    num_op = num_ops[op_idx], num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
         // printf("%ld\n", ONE_NODE_MEM_SIZE / sizeof(int64_t));
+
+    seeds = (unsigned int *)malloc(num_thread * sizeof(unsigned int));
+    for (int i = 0; i < num_thread; ++i)
+        seeds[i] = i + 1;
 
     logfile.open("log.txt");
     logfile << "mode: " << mode << " | " << "split_ratio: " << split_ratio 
