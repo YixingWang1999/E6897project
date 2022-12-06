@@ -68,14 +68,15 @@ int64_t *mem_alloc_set_numa(long num_page, int node, bool huge) {
     }
     numa_tonode_memory(ptr, size, node);
     memset(ptr, 0, size);
+    // printf("\nsizes: %ld, %ld\n", size / DATA_SIZE, int64_t(size / DATA_SIZE * hot_ratio_));
     return ptr;
 }
 
-void inline access_page(volatile int64_t &tmp, int64_t *start, long &cur_num_op) {
+void inline access_page(volatile int8_t &tmp, int64_t *start, long &cur_num_op) {
     if (!start)
         return;
     // every op includes 4KB/64b/SKIP_SIZE times addition: currently it is 512 times for skip_size = 1
-    for (int64_t k = 0; k < DATA_SIZE / sizeof(int64_t); k+=SKIP_SIZE) {
+    for (int64_t k = 0; k < DATA_SIZE / sizeof(tmp); k+=SKIP_SIZE) {
         tmp += start[k];
     }
     cur_num_op += 1;
@@ -83,25 +84,46 @@ void inline access_page(volatile int64_t &tmp, int64_t *start, long &cur_num_op)
 
 int64_t calculate_start_index(int64_t cur_start_page, bool hot) {
     // cur_start_page is the unit of 4K pages
+    // we want to find the huge page number given the cur_start_pag
 
-    int64_t granularity = long(HUGE_PAGE_SIZE * hot_ratio_) / DATA_SIZE; // hot 4k pages per huge page
-    // printf("granularity %ld\n", granularity);
+    
+    
+    // printf("\ngranularity %ld\n", granularity);
     int64_t start_index;
+    // volatile int64_t complexer;
+    // printf("hot: %d, cur_start_page: %ld\n", int(hot), cur_start_page);
     if (hot) {
-        if (granularity)
+        int64_t granularity = ceil(HUGE_PAGE_SIZE / DATA_SIZE * hot_ratio_); // hot 4k pages per huge page
+        if (granularity) {
             start_index = cur_start_page / granularity * HUGE_PAGE_SIZE + 
                     cur_start_page % granularity * DATA_SIZE;
-        else
-            start_index = -1 * sizeof(int64_t); // less than zero means no hot pages
+            // printf("\n1: \n");
+        } else {
+            // less than zero means no hot pages
+            // we complex the computation here to be more fair to no hot pages
+            // complexer = -1000 % sizeof(int64_t) * DATA_SIZE - 1000 / sizeof(int64_t) * HUGE_PAGE_SIZE; 
+            start_index = -1 * sizeof(int64_t);
+            // printf("\n2\n");
+        }
     } else {
-        if (granularity)
-            start_index = cur_start_page / granularity * HUGE_PAGE_SIZE + int64_t(HUGE_PAGE_SIZE * hot_ratio_)
-                        + cur_start_page % granularity * DATA_SIZE;
-        else
+        int64_t cold_granularity = ceil(HUGE_PAGE_SIZE / DATA_SIZE * (1 - hot_ratio_)); // cold 4k pages per huge page
+        if (cold_granularity) {
+            // todo: this is where the bug is!!!
+            // start_index = cur_start_page / granularity * HUGE_PAGE_SIZE + int64_t(HUGE_PAGE_SIZE * hot_ratio_)
+            //             + cur_start_page % granularity * DATA_SIZE;
+            // todo: needs to rebuild here
+            start_index = cur_start_page / cold_granularity * HUGE_PAGE_SIZE
+                        + int64_t(HUGE_PAGE_SIZE * hot_ratio_) // skip the hot area
+                        + cur_start_page % cold_granularity * DATA_SIZE;
+            // printf("\n3\n");
+        } else {
+            // complexer = -1000 % sizeof(int64_t) * DATA_SIZE - 1000 / sizeof(int64_t) * HUGE_PAGE_SIZE; 
             start_index = cur_start_page * DATA_SIZE; // 4K is a unit
+            // printf("\n4\n");
+        }
     }
     
-    return start_index / sizeof(int64_t);
+    return start_index;
 }
 
 int64_t *pick_start(bool hot) {
@@ -122,22 +144,28 @@ int64_t *pick_start(bool hot) {
     int64_t start_page = rand() % prefix_sum[3];
     if (start_page < prefix_sum[0]) {
         int64_t cur_start_page = rand() % pages[0];
- return local_small_buf + cur_start_page * DATA_SIZE / sizeof(local_small_buf);
+        return local_small_buf + cur_start_page * DATA_SIZE / sizeof(local_small_buf);
     } else if (start_page < prefix_sum[1]) {
         int64_t cur_start_page = rand() % pages[1]; // the cur_start_page is with unit 4K already
         int64_t start_index = calculate_start_index(cur_start_page, hot);
-        if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+        if (start_index < 0)
             return NULL;
-        return local_huge_buf + start_index;
+        // cout<< endl << "hh" << start_index / DATA_SIZE << endl;
+        // if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+        //     return NULL;
+        return local_huge_buf + start_index / sizeof(local_huge_buf);
     } else if (start_page < prefix_sum[2]) {
         int64_t cur_start_page = rand() % pages[2];
-return remote_small_buf + cur_start_page * DATA_SIZE / sizeof(remote_small_buf);
+        return remote_small_buf + cur_start_page * DATA_SIZE / sizeof(remote_small_buf);
     } else {
         int64_t cur_start_page = rand() % pages[3];
         int64_t start_index = calculate_start_index(cur_start_page, hot);
-        if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+        if (start_index < 0)
             return NULL;
-        return remote_huge_buf + start_index;
+        // cout<< endl << "ll" << start_index / DATA_SIZE << endl;
+        // if (start_index > ONE_NODE_MEM_SIZE / sizeof(int64_t))
+        //     return NULL;
+        return remote_huge_buf + start_index / sizeof(remote_huge_buf);
     }
 }
 
@@ -153,24 +181,28 @@ void thread_fn(int thread_index, long num_op,
 
     long cur_num_op = 0;
     srand((unsigned)time(NULL));
+    volatile bool hot;
+    volatile int8_t tmp = 0;
     chrono::time_point<chrono::steady_clock> start_time = chrono::steady_clock::now();
     if (hot_ratio_ >= 0.1 && hot_ratio_ <= 0.9) {
         while (!(*terminate) && cur_num_op < num_op) {
-            bool hot = (rand() % 10 < 9); // 0-8 hot, 9 cold
-            volatile int64_t tmp = 0;
+            // bool hot = (rand() % 10 < 9); // 0-8 hot, 9 cold
+            hot = (cur_num_op % 10 < 9); 
+            // volatile int8_t tmp = 0;
             access_page(tmp, pick_start(hot), cur_num_op);
         }
     } else if (hot_ratio_ > 0.9) {
         while (!(*terminate) && cur_num_op < num_op) {
-            bool hot = (rand() % 10 >= 0);
-            volatile int64_t tmp = 0;
+            // bool hot = (rand() % 10 >= 0);
+            hot = (cur_num_op % 10 >= 0);
+            // volatile int8_t tmp = 0;
             access_page(tmp, pick_start(hot), cur_num_op);
         }
     }
-    else {
+    else { // hot_ratio is 0
         while (!(*terminate) && cur_num_op < num_op) {
-            bool hot = (rand() % 10 < 0); //always = false when there is no hot pages
-            volatile int64_t tmp = 0;
+            hot = (cur_num_op % 10 < 0); //always = false when there is no hot pages
+            // volatile int8_t tmp = 0;
             access_page(tmp, pick_start(hot), cur_num_op);
         }
     }
@@ -204,33 +236,33 @@ void update_hot_cold_pages(void) {
         }
     }
 
-    // logfile << "hot pages: ";
-    // for (int i = 0; i < 4; ++i)
-    //     logfile << hot_pages[i] << " ";
-    // logfile << endl;
+    logfile << "hot pages: ";
+    for (int i = 0; i < 4; ++i)
+        logfile << hot_pages[i] << " ";
+    logfile << endl;
 
-    // logfile << "hot prefix: ";
-    // for (int i = 0; i < 4; ++i)
-    //     logfile << hot_prefix_sum[i] << " ";
-    // logfile << endl;
+    logfile << "hot prefix: ";
+    for (int i = 0; i < 4; ++i)
+        logfile << hot_prefix_sum[i] << " ";
+    logfile << endl;
 
-    // logfile << "cold pages: ";
-    // for (int i = 0; i < 4; ++i)
-    //     logfile << cold_pages[i] << " ";
-    // logfile << endl;
+    logfile << "cold pages: ";
+    for (int i = 0; i < 4; ++i)
+        logfile << cold_pages[i] << " ";
+    logfile << endl;
 
-    // logfile << "cold prefix: ";
-    // for (int i = 0; i < 4; ++i)
-    //     logfile << cold_prefix_sum[i] << " ";
-    // logfile << endl;
+    logfile << "cold prefix: ";
+    for (int i = 0; i < 4; ++i)
+        logfile << cold_prefix_sum[i] << " ";
+    logfile << endl;
 
-    // logfile << endl;
+    logfile << endl;
 }
 
 void calculate_pages_local_remote(double split_ratio, int64_t local_size=ONE_NODE_MEM_SIZE, int64_t remote_size=ONE_NODE_MEM_SIZE) {
     int64_t whole_size = local_size + remote_size;
 
-    small_pages = (split_ratio * whole_size) / DATA_SIZE;
+    small_pages = whole_size / DATA_SIZE * split_ratio;
     small_hot_pages = small_pages * hot_ratio_;
     small_cold_pages = small_pages - small_hot_pages;
 
@@ -245,10 +277,10 @@ void calculate_pages_local_remote(double split_ratio, int64_t local_size=ONE_NOD
     remote_cold_pages = small_cold_pages - local_cold_pages;
     remote_huge_pages = huge_pages - local_huge_pages;
 
-    local_huge_to_small_hot = local_huge_pages * HUGE_PAGE_SIZE * hot_ratio_ / DATA_SIZE;
-    remote_huge_to_small_hot = remote_huge_pages * HUGE_PAGE_SIZE * hot_ratio_ / DATA_SIZE;
-    local_huge_to_small_cold = local_huge_pages * HUGE_PAGE_SIZE * (1 - hot_ratio_) / DATA_SIZE;
-    remote_huge_to_small_cold = remote_huge_pages * HUGE_PAGE_SIZE * (1 - hot_ratio_) / DATA_SIZE;
+    local_huge_to_small_hot = HUGE_PAGE_SIZE / DATA_SIZE * hot_ratio_ * local_huge_pages;
+    remote_huge_to_small_hot = HUGE_PAGE_SIZE / DATA_SIZE * hot_ratio_ * remote_huge_pages;
+    local_huge_to_small_cold = HUGE_PAGE_SIZE / DATA_SIZE * (1 - hot_ratio_) * local_huge_pages;
+    remote_huge_to_small_cold = HUGE_PAGE_SIZE / DATA_SIZE  * (1 - hot_ratio_) * remote_huge_pages;
 
     logfile << "small_pages: " <<
         small_pages << " small_hot: " << small_hot_pages << " small_cold:" << small_cold_pages << "\nlocal_hot: " 
@@ -391,7 +423,7 @@ int main(int argc, char *argv[]) {
     long num_op, num_thread;
     double split_ratio, hot_ratio; // the maximum is 1
 
-    num_op = 10000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
+    num_op = 1000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
         // printf("%ld\n", ONE_NODE_MEM_SIZE / sizeof(int64_t));
 
     logfile.open("log.txt");
