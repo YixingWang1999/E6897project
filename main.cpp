@@ -155,27 +155,27 @@ void update_hot_cold_pages(void) {
         }
     }
 
-        logfile << "hot pages: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << hot_pages[i] << " ";
-    logfile << endl;
+    //     logfile << "hot pages: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << hot_pages[i] << " ";
+    // logfile << endl;
 
-    logfile << "hot prefix: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << hot_prefix_sum[i] << " ";
-    logfile << endl;
+    // logfile << "hot prefix: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << hot_prefix_sum[i] << " ";
+    // logfile << endl;
 
-    logfile << "cold pages: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << cold_pages[i] << " ";
-    logfile << endl;
+    // logfile << "cold pages: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << cold_pages[i] << " ";
+    // logfile << endl;
 
-    logfile << "cold prefix: ";
-    for (int i = 0; i < 4; ++i)
-        logfile << cold_prefix_sum[i] << " ";
-    logfile << endl;
+    // logfile << "cold prefix: ";
+    // for (int i = 0; i < 4; ++i)
+    //     logfile << cold_prefix_sum[i] << " ";
+    // logfile << endl;
 
-    logfile << endl;
+    // logfile << endl;
 }
 
 void calculate_pages_local_remote(double split_ratio, int64_t local_size=ONE_NODE_MEM_SIZE, int64_t remote_size=ONE_NODE_MEM_SIZE) {
@@ -238,9 +238,9 @@ void buffer_concatenation(bool hot) {
         // i = hot_prefix_sum[0];
         // cout << i << " " << j << endl;
         for (j = 0; i < hot_prefix_sum[1], j < local_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// local 2M hot part
-            if ((j % HUGE_PAGE_SIZE) > hot_region_size) {// if it is beyond hot region
+            if ((j % HUGE_PAGE_SIZE) >= hot_region_size) {// if it is beyond hot region
                 // jump to the start of next huge page
-                j += HUGE_PAGE_SIZE - j % HUGE_PAGE_SIZE;
+                j += HUGE_PAGE_SIZE - j % HUGE_PAGE_SIZE - DATA_SIZE;
                 i -= 1;
                 continue;
             }
@@ -255,9 +255,9 @@ void buffer_concatenation(bool hot) {
         // i = hot_prefix_sum[2];
         // cout << i << " " << j << endl;
         for (j = 0; i < hot_prefix_sum[3], j < remote_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// remote 2M hot part
-            if ((j % HUGE_PAGE_SIZE) > hot_region_size) {// if it is beyond hot region
+            if ((j % HUGE_PAGE_SIZE) >= hot_region_size) {// if it is beyond hot region
                 // jump to the start of next huge page
-                j += HUGE_PAGE_SIZE - j % HUGE_PAGE_SIZE;
+                j += HUGE_PAGE_SIZE - j % HUGE_PAGE_SIZE - DATA_SIZE;
                 i -= 1;
                 continue;
             }
@@ -269,31 +269,31 @@ void buffer_concatenation(bool hot) {
         // cold_buf_concat_size = size;
         for (j = 0; i < cold_prefix_sum[0], j < local_cold_pages * DATA_SIZE; ++i, j+=DATA_SIZE) // local 4k hot
             cold_buf_concat[i] = &local_cold_buf[j/sizeof(int64_t)];
-        logfile << "diff1: " << i - cold_prefix_sum[0] << endl;
+        // logfile << "diff1: " << i - cold_prefix_sum[0] << endl;
         // i = cold_prefix_sum[0];
         for (j = hot_region_size; i < cold_prefix_sum[1], j < local_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// local 2M hot part
             if ((j % HUGE_PAGE_SIZE) == 0) {// if it is beyond cold region
-                j += hot_region_size; // jump to the start of next huge page's cold region
+                j += hot_region_size - DATA_SIZE; // jump to the start of next huge page's cold region
                 i -= 1;
                 continue;
             }
             cold_buf_concat[i] = &local_huge_buf[j/sizeof(int64_t)];
         }
-        logfile << "diff2: " << i - cold_prefix_sum[1] << endl;
+        // logfile << "diff2: " << i - cold_prefix_sum[1] << endl;
         // i = cold_prefix_sum[1];
         for (j=0; i < cold_prefix_sum[2], j < remote_cold_pages * DATA_SIZE; ++i, j+=DATA_SIZE)
             cold_buf_concat[i] = &remote_cold_buf[j/sizeof(int64_t)];
-        logfile << "diff3: " << i - cold_prefix_sum[2] << endl;
+        // logfile << "diff3: " << i - cold_prefix_sum[2] << endl;
         // i = cold_prefix_sum[2];
         for (j = hot_region_size; i < cold_prefix_sum[3], j < remote_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// remote 2M hot part
             if ((j % HUGE_PAGE_SIZE) == 0) {// if it is beyond hot region
-                j += hot_region_size; // jump to the start of next huge page
+                j += hot_region_size - DATA_SIZE; // jump to the start of next huge page
                 i -= 1;
                 continue;
             }
             cold_buf_concat[i] = &remote_huge_buf[j/sizeof(int64_t)];
         }
-        logfile << "diff4: " << i - cold_prefix_sum[3] << endl;
+        // logfile << "diff4: " << i - cold_prefix_sum[3] << endl;
         cold_prefix_sum[3] = i;
     }
 }
@@ -358,31 +358,31 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
     // for (; i < hot_prefix_sum[3]; ++i)
     //     logfile << hot_buf_concat[i] << " ";
     // logfile << endl;
-    logfile << local_cold_buf <<"\t" << local_huge_buf << "\t"<< remote_cold_buf << "\t"<< remote_huge_buf << "\t"<< endl;
+    // logfile << local_cold_buf <<"\t" << local_huge_buf << "\t"<< remote_cold_buf << "\t"<< remote_huge_buf << "\t"<< endl;
 
     // for (int i = 0; i < hot_prefix_sum[3]; ++i)
     //     logfile << hot_buf_concat[i] << " ";
     // logfile << endl;
     int i = 0;
-    logfile << "hh" << endl;
-    for (; i < cold_prefix_sum[0]; ++i)
-        logfile << cold_buf_concat[i] << " ";
-    logfile << endl;
+    // logfile << "hh" << endl;
+    // for (; i < cold_prefix_sum[0]; ++i)
+    //     logfile << cold_buf_concat[i] << " ";
+    // logfile << endl;
 
-    logfile << "hh" << endl;
-    for (; i < cold_prefix_sum[1]; ++i)
-        logfile << cold_buf_concat[i] << " ";
-    logfile << endl;
+    // logfile << "hh" << endl;
+    // for (; i < cold_prefix_sum[1]; ++i)
+    //     logfile << cold_buf_concat[i] << " ";
+    // logfile << endl;
 
-    logfile << "hh" << endl;
-    for (; i < cold_prefix_sum[2]; ++i)
-        logfile << cold_buf_concat[i] << " ";
-    logfile << endl;
+    // logfile << "hh" << endl;
+    // for (; i < cold_prefix_sum[2]; ++i)
+    //     logfile << cold_buf_concat[i] << " ";
+    // logfile << endl;
 
-    logfile << "hh" << endl;
-    for (; i < cold_prefix_sum[3]; ++i)
-        logfile << cold_buf_concat[i] << " ";
-    logfile << endl;
+    // logfile << "hh" << endl;
+    // for (; i < cold_prefix_sum[3]; ++i)
+    //     logfile << cold_buf_concat[i] << " ";
+    // logfile << endl;
 
     fflush(stdout);
 
@@ -435,8 +435,8 @@ int main(int argc, char *argv[]) {
         seeds[i] = i + 1;
 
     logfile.open("log.txt");
-    // logfile << "mode: " << mode << " | " << "split_ratio: " << split_ratio 
-    //     << " | " << "hot_ratio: " << hot_ratio << "\n"; 
+    logfile << "mode: " << mode << " | " << "split_ratio: " << split_ratio 
+        << " | " << "hot_ratio: " << hot_ratio << "\n"; 
 
     main_experiment(num_op, num_thread, split_ratio, hot_ratio, mode);
 
