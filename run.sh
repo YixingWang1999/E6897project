@@ -10,9 +10,9 @@ make
 #         ./test 1 1 2 $m >> output.txt
 # done
 
-for i in {0..10..2}
+for j in {0..10..1}
 do
-        for j in {0..10..2}
+        for i in {0..10..1}
         do
                 ./test $i $j 2 >> output.txt
         done

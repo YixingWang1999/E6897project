@@ -41,7 +41,7 @@ int64_t local_huge_to_small_hot, local_huge_to_small_cold;
 int64_t remote_huge_to_small_hot, remote_huge_to_small_cold;
 int64_t *hot_buf_concat[ONE_NODE_MEM_SIZE * 2 / DATA_SIZE] = {NULL};
 int64_t *cold_buf_concat[ONE_NODE_MEM_SIZE * 2 / DATA_SIZE] = {NULL};
-ofstream logfile;
+// ofstream logfile;
 
 static inline void BUG_ON(bool cond) {
     if (cond) {
@@ -76,10 +76,10 @@ void inline access_page(volatile int64_t &tmp, int64_t *start, long &cur_num_op)
 
 inline int64_t *pick_start(bool hot, int thread_index, long num_op) {
     if (hot){
-        // cout << "hot" << num_op % hot_prefix_sum[3] << endl;
+        // logfile << "hot" << num_op % hot_prefix_sum[3] << endl;
         return hot_buf_concat[num_op % hot_prefix_sum[3]];
     } else {
-        // cout << "cold" << num_op % cold_prefix_sum[3] << endl;
+        // logfile << "cold" << num_op % cold_prefix_sum[3] << endl;
         return cold_buf_concat[num_op % cold_prefix_sum[3]];
     }   
 }
@@ -103,7 +103,7 @@ void thread_fn(int thread_index, long num_op,
     if (hot_ratio_ >= 0.1 && hot_ratio_ <= 0.9) {
         while (!(*terminate) && cur_num_op < num_op) {
             // bool hot = (rand() % 10 < 9); // 0-8 hot, 9 cold
-            hot = (cur_num_op % 10 < 9);
+            hot = (cur_num_op % 20 < 19);
             // volatile int8_t tmp = 0;
             start = pick_start(hot, thread_index, cur_num_op);
             access_page(tmp, start, cur_num_op);
@@ -111,7 +111,7 @@ void thread_fn(int thread_index, long num_op,
     } else if (hot_ratio_ > 0.9) {
         while (!(*terminate) && cur_num_op < num_op) {
             // bool hot = (rand() % 10 >= 0);
-            hot = (cur_num_op % 10 >= 0);
+            hot = (cur_num_op % 20 >= 0);
             // volatile int8_t tmp = 0;
             start = pick_start(hot, thread_index, cur_num_op);
             access_page(tmp, start, cur_num_op);
@@ -119,7 +119,7 @@ void thread_fn(int thread_index, long num_op,
     }
     else { // hot_ratio is 0
         while (!(*terminate) && cur_num_op < num_op) {
-            hot = (cur_num_op % 10 < 0); //always = false when there is no hot pages
+            hot = (cur_num_op % 20 < 0); //always = false when there is no hot pages
             // volatile int8_t tmp = 0;
             start = pick_start(hot, thread_index, cur_num_op);
             access_page(tmp, start, cur_num_op);
@@ -204,12 +204,12 @@ void calculate_pages_local_remote(double split_ratio, int64_t local_size=ONE_NOD
     local_huge_to_small_cold = cold_4ks_in_huge * local_huge_pages;
     remote_huge_to_small_cold = cold_4ks_in_huge * remote_huge_pages;
 
-    logfile << "small_pages: " <<
-        small_pages << " small_hot: " << small_hot_pages << " small_cold:" << small_cold_pages << "\nlocal_hot: " 
-        << local_hot_pages << " remote_hot: " << remote_hot_pages << " local_cold: " << local_cold_pages << " remote_cold: " << remote_cold_pages << "\nhuge_pages: " << huge_pages << " local_huge: "
-        << local_huge_pages << " remote_huge: " <<remote_huge_pages << "\nlocal_huge_to_small_hot: " << local_huge_to_small_hot
-        << " local_huge_to_small_cold: " << local_huge_to_small_cold << "\nremote_huge_to_small_hot: " 
-        <<remote_huge_to_small_hot << " remote_huge_to_small_cold: " << remote_huge_to_small_cold << endl << endl;
+    // logfile << "small_pages: " <<
+    //     small_pages << " small_hot: " << small_hot_pages << " small_cold:" << small_cold_pages << "\nlocal_hot: " 
+    //     << local_hot_pages << " remote_hot: " << remote_hot_pages << " local_cold: " << local_cold_pages << " remote_cold: " << remote_cold_pages << "\nhuge_pages: " << huge_pages << " local_huge: "
+    //     << local_huge_pages << " remote_huge: " <<remote_huge_pages << "\nlocal_huge_to_small_hot: " << local_huge_to_small_hot
+    //     << " local_huge_to_small_cold: " << local_huge_to_small_cold << "\nremote_huge_to_small_hot: " 
+    //     <<remote_huge_to_small_hot << " remote_huge_to_small_cold: " << remote_huge_to_small_cold << endl << endl;
 
     assert(small_pages * DATA_SIZE + huge_pages * HUGE_PAGE_SIZE <= whole_size);
     assert(small_pages * DATA_SIZE + huge_pages * HUGE_PAGE_SIZE >= int64_t(whole_size - (HUGE_PAGE_SIZE * 2 + DATA_SIZE * 2)));
@@ -232,12 +232,12 @@ void buffer_concatenation(bool hot) {
     // hot_region_size += DATA_SIZE - hot_region_size % DATA_SIZE;
     if (hot) {
         // hot_buf_concat_size = size;
-        for (j = 0; i < hot_prefix_sum[0], j < local_hot_pages * DATA_SIZE; ++i, j+=DATA_SIZE) // local 4k hot
+        for (j = 0; i < hot_prefix_sum[0] && j < local_hot_pages * DATA_SIZE; ++i, j+=DATA_SIZE) // local 4k hot
             hot_buf_concat[i] = &local_hot_buf[j/sizeof(int64_t)];
         // logfile << "diff1" << i - hot_prefix_sum[0] << endl;
         // i = hot_prefix_sum[0];
         // cout << i << " " << j << endl;
-        for (j = 0; i < hot_prefix_sum[1], j < local_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// local 2M hot part
+        for (j = 0; i < hot_prefix_sum[1] && j < local_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// local 2M hot part
             if ((j % HUGE_PAGE_SIZE) >= hot_region_size) {// if it is beyond hot region
                 // jump to the start of next huge page
                 j += HUGE_PAGE_SIZE - j % HUGE_PAGE_SIZE - DATA_SIZE;
@@ -249,12 +249,12 @@ void buffer_concatenation(bool hot) {
         // logfile << "diff2" << i - hot_prefix_sum[1] << endl;
         // i = hot_prefix_sum[1];
         // cout << i << " " << j << endl;
-        for (j=0; i < hot_prefix_sum[2], j < remote_hot_pages * DATA_SIZE; ++i, j+=DATA_SIZE)
+        for (j=0; i < hot_prefix_sum[2] && j < remote_hot_pages * DATA_SIZE; ++i, j+=DATA_SIZE)
             hot_buf_concat[i] = &remote_hot_buf[j/sizeof(int64_t)];
         // logfile << "diff3" << i - hot_prefix_sum[2] << endl;
         // i = hot_prefix_sum[2];
         // cout << i << " " << j << endl;
-        for (j = 0; i < hot_prefix_sum[3], j < remote_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// remote 2M hot part
+        for (j = 0; i < hot_prefix_sum[3] && j < remote_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// remote 2M hot part
             if ((j % HUGE_PAGE_SIZE) >= hot_region_size) {// if it is beyond hot region
                 // jump to the start of next huge page
                 j += HUGE_PAGE_SIZE - j % HUGE_PAGE_SIZE - DATA_SIZE;
@@ -267,26 +267,29 @@ void buffer_concatenation(bool hot) {
         hot_prefix_sum[3] = i;
     } else {
         // cold_buf_concat_size = size;
-        for (j = 0; i < cold_prefix_sum[0], j < local_cold_pages * DATA_SIZE; ++i, j+=DATA_SIZE) // local 4k hot
+        for (j = 0; i < cold_prefix_sum[0] && j < local_cold_pages * DATA_SIZE; ++i, j+=DATA_SIZE) // local 4k hot
             cold_buf_concat[i] = &local_cold_buf[j/sizeof(int64_t)];
+        // cout << i << " " << j << endl;
         // logfile << "diff1: " << i - cold_prefix_sum[0] << endl;
         // i = cold_prefix_sum[0];
-        for (j = hot_region_size; i < cold_prefix_sum[1], j < local_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// local 2M hot part
-            if ((j % HUGE_PAGE_SIZE) == 0) {// if it is beyond cold region
+        for (j = hot_region_size; i < cold_prefix_sum[1] && j < local_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// local 2M hot part
+            if (hot_region_size != 0 && (j % HUGE_PAGE_SIZE) == 0) {// if it is beyond cold region
                 j += hot_region_size - DATA_SIZE; // jump to the start of next huge page's cold region
                 i -= 1;
                 continue;
             }
             cold_buf_concat[i] = &local_huge_buf[j/sizeof(int64_t)];
         }
+        // cout << i << " " << j << endl;
         // logfile << "diff2: " << i - cold_prefix_sum[1] << endl;
         // i = cold_prefix_sum[1];
-        for (j=0; i < cold_prefix_sum[2], j < remote_cold_pages * DATA_SIZE; ++i, j+=DATA_SIZE)
+        for (j=0; i < cold_prefix_sum[2] && j < remote_cold_pages * DATA_SIZE; ++i, j+=DATA_SIZE)
             cold_buf_concat[i] = &remote_cold_buf[j/sizeof(int64_t)];
+        // cout << i << " " << j << endl;
         // logfile << "diff3: " << i - cold_prefix_sum[2] << endl;
         // i = cold_prefix_sum[2];
-        for (j = hot_region_size; i < cold_prefix_sum[3], j < remote_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// remote 2M hot part
-            if ((j % HUGE_PAGE_SIZE) == 0) {// if it is beyond hot region
+        for (j = hot_region_size; i < cold_prefix_sum[3] && j < remote_huge_pages * HUGE_PAGE_SIZE; ++i, j+=DATA_SIZE) {// remote 2M hot part
+            if (hot_region_size != 0 && (j % HUGE_PAGE_SIZE) == 0) {// if it is beyond hot region
                 j += hot_region_size - DATA_SIZE; // jump to the start of next huge page
                 i -= 1;
                 continue;
@@ -418,7 +421,7 @@ int main(int argc, char *argv[]) {
     double split_ratios[] = {0.0 ,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     double hot_ratios[] = {0.0 ,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     long num_threads[] = {};
-    long num_ops[] = {5000000, 10000000, 20000000, 25000000, 30000000, 35000000};
+    // long num_ops[] = {5000000, 10000000, 20000000, 25000000, 30000000, 35000000};
     
     BUG_ON(argc != 4);
 
@@ -428,19 +431,19 @@ int main(int argc, char *argv[]) {
     long num_op, num_thread;
     double split_ratio, hot_ratio; // the maximum is 1
 
-    num_op = 30000000, num_thread = 1, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
+    num_op = 50000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx] / 4;
 
     seeds = (unsigned int *)malloc(num_thread * sizeof(unsigned int));
     for (int i = 0; i < num_thread; ++i)
         seeds[i] = i + 1;
 
-    logfile.open("log.txt");
-    logfile << "mode: " << mode << " | " << "split_ratio: " << split_ratio 
-        << " | " << "hot_ratio: " << hot_ratio << "\n"; 
+    // logfile.open("log.txt");
+    // logfile << "mode: " << mode << " | " << "split_ratio: " << split_ratio 
+    //     << " | " << "hot_ratio: " << hot_ratio << "\n"; 
 
     main_experiment(num_op, num_thread, split_ratio, hot_ratio, mode);
 
-    logfile.close();
+    // logfile.close();
 
 
     return 0;
