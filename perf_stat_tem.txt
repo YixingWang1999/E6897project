@@ -1,0 +1,13 @@
+# started on Wed Dec  7 13:28:33 2022
+
+
+ Performance counter stats for './test 10 3 0':
+
+        35,231,116      dTLB-load-misses                                            
+        37,554,848      dTLB-store-misses                                           
+         4,194,672      page-faults                                                 
+                 0      major-faults                                                
+         4,194,672      minor-faults                                                
+
+      15.769330332 seconds time elapsed
+
