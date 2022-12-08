@@ -18,6 +18,9 @@
 #include <fcntl.h>
 #include <time.h>
 #include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 
 const int64_t HUGE_PAGE_SIZE = 1L << 21L; // 2MB
 const int64_t ONE_NODE_MEM_SIZE = 1L << 33L;  // 8G
@@ -41,6 +44,7 @@ int64_t local_huge_to_small_hot, local_huge_to_small_cold;
 int64_t remote_huge_to_small_hot, remote_huge_to_small_cold;
 int64_t *hot_buf_concat[ONE_NODE_MEM_SIZE * 2 / DATA_SIZE] = {NULL};
 int64_t *cold_buf_concat[ONE_NODE_MEM_SIZE * 2 / DATA_SIZE] = {NULL};
+ofstream perf_stat;
 // ofstream logfile;
 
 static inline void BUG_ON(bool cond) {
@@ -415,6 +419,37 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
     free(remote_huge_buf);
 }
 
+void inspect_page_table_size(bool before_exp, double split_ratio, double hot_ratio, int mode) {
+    if (before_exp) {
+        perf_stat.open("./perf_stat.txt", ios_base::app);
+        perf_stat << split_ratio << " | " << hot_ratio_ \
+            << " | " << mode << endl;
+        // perf_stat << "before experiement: " << endl;
+    } else {
+        // perf_stat << "after experiemnt: " << endl;
+    }
+    char command1[100];
+    char command2[] = "sudo cat /proc/meminfo | grep PageTables >> ./perf_stat.txt";
+    sprintf(command1, "sudo cat /proc/%ld/status | grep VmPTE >> ./perf_stat.txt", long(getpid()));
+    // sprintf(command2, "sudo cat /proc/%ld/status | grep VmPTE >> ./perf_stat.txt", long(getpid()));
+
+    pid_t pid1 = fork();
+    if (pid1 < 0) {
+            printf("fork error\n");
+            return;
+    } else if (pid1 == 0) {
+            system(command1);
+            sleep(3);
+            system(command2);
+            exit(0);
+    } else {
+            wait(NULL);
+    }
+
+    if (!before_exp)
+        perf_stat.close();
+}
+
 
 int main(int argc, char *argv[]) {
 
@@ -431,7 +466,7 @@ int main(int argc, char *argv[]) {
     long num_op, num_thread;
     double split_ratio, hot_ratio; // the maximum is 1
 
-    num_op = 50000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx] / 4;
+    num_op = 50000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
 
     seeds = (unsigned int *)malloc(num_thread * sizeof(unsigned int));
     for (int i = 0; i < num_thread; ++i)
@@ -440,8 +475,9 @@ int main(int argc, char *argv[]) {
     // logfile.open("log.txt");
     // logfile << "mode: " << mode << " | " << "split_ratio: " << split_ratio 
     //     << " | " << "hot_ratio: " << hot_ratio << "\n"; 
-
+    inspect_page_table_size(true, split_ratio, hot_ratio, mode);
     main_experiment(num_op, num_thread, split_ratio, hot_ratio, mode);
+    inspect_page_table_size(false, split_ratio, hot_ratio, mode);
 
     // logfile.close();
 

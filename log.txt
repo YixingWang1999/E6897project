@@ -1,13 +1,2 @@
-mode: 2 | split_ratio: 0.1 | hot_ratio: 0
-small_pages: 419430 small_hot: 0 small_cold:419430
-local_hot: 0 remote_hot: 0 local_cold: 0 remote_cold: 419430
-huge_pages: 7372 local_huge: 4096 remote_huge: 3276
-local_huge_to_small_hot: 0 local_huge_to_small_cold: 2097152
-remote_huge_to_small_hot: 0 remote_huge_to_small_cold: 1677312
-
-hot pages: 0 0 0 0 
-hot prefix: 0 0 0 0 
-cold pages: 0 2097152 419430 1677312 
-cold prefix: 0 2097152 2516582 4193894 
-
-0x55ffc29e7000	0x7f883cc00000	0x55ffc29e9000	0x7f863cc00000	
+0.2 | 0 | 0
+before experiement: 

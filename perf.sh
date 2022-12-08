@@ -15,6 +15,7 @@ do
         sudo perf stat -o perf_stat_tem.txt \
                 -e dTLB-load-misses,dTLB-store-misses,page-faults,major-faults,minor-faults\
                         ./test $i 3 0
-        cat perf_stat_tem.txt >> perf_stat.txt
+        cat perf_stat_tem.txt | grep - >> perf_stat.txt
+        echo -e "\n" >> perf_stat.txt
         # done
 done

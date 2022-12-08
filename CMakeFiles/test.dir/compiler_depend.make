@@ -264,8 +264,11 @@ CMakeFiles/test.dir/main.cpp.o: main.cpp \
   /usr/include/c++/7/bits/codecvt.h \
   /usr/include/x86_64-linux-gnu/c++/7/bits/basic_file.h \
   /usr/include/x86_64-linux-gnu/c++/7/bits/c++io.h \
-  /usr/include/c++/7/bits/fstream.tcc
+  /usr/include/c++/7/bits/fstream.tcc \
+  /usr/include/x86_64-linux-gnu/sys/wait.h
 
+
+/usr/include/x86_64-linux-gnu/sys/wait.h:
 
 /usr/include/c++/7/bits/codecvt.h:
 
