@@ -27,6 +27,8 @@ const int64_t ONE_NODE_MEM_SIZE = 1L << 33L;  // 8G
 const int64_t DATA_SIZE = 1L << 12L; // 4K
 const int64_t ONE_NODE_CPU_SETS = 10L;
 const int64_t SKIP_SIZE = 1L;
+const int HOT_COLD_ACCESS_RATIO = 100;
+const double EPS = 1e-3;
 
 using namespace std;
 
@@ -44,6 +46,7 @@ int64_t local_huge_to_small_hot, local_huge_to_small_cold;
 int64_t remote_huge_to_small_hot, remote_huge_to_small_cold;
 int64_t *hot_buf_concat[ONE_NODE_MEM_SIZE * 2 / DATA_SIZE] = {NULL};
 int64_t *cold_buf_concat[ONE_NODE_MEM_SIZE * 2 / DATA_SIZE] = {NULL};
+double suggested_local_remote_access_ratio;
 ofstream perf_stat;
 // ofstream logfile;
 
@@ -79,13 +82,12 @@ void inline access_page(volatile int64_t &tmp, int64_t *start, long &cur_num_op)
 
 
 inline int64_t *pick_start(bool hot, int thread_index, long num_op) {
-    if (hot){
-        // logfile << "hot" << num_op % hot_prefix_sum[3] << endl;
+    if ((hot && hot_ratio_ > EPS) || hot_ratio_ > 1 - EPS){ // in case hot_ratio_ is 0 or hot_ratio_ is 1
         return hot_buf_concat[num_op % hot_prefix_sum[3]];
-    } else {
-        // logfile << "cold" << num_op % cold_prefix_sum[3] << endl;
+    } else if((!hot && hot_ratio_ < 1 - EPS) || hot_ratio_ < EPS) {
+        // in case hot_ratio_ == 0 or hot_ratio_ = 1
         return cold_buf_concat[num_op % cold_prefix_sum[3]];
-    }   
+    }
 }
 
 void thread_fn(int thread_index, long num_op,
@@ -100,35 +102,40 @@ void thread_fn(int thread_index, long num_op,
 
     long cur_num_op = 0;
     srand((unsigned)time(NULL));
-    volatile bool hot;
+    bool hot;
     volatile int64_t tmp = 0;
-    int64_t *start = NULL;
+    int64_t *start = NULL; // in case it is opimized
     chrono::time_point<chrono::steady_clock> start_time = chrono::steady_clock::now();
-    if (hot_ratio_ >= 0.1 && hot_ratio_ <= 0.9) {
-        while (!(*terminate) && cur_num_op < num_op) {
-            // bool hot = (rand() % 10 < 9); // 0-8 hot, 9 cold
-            hot = (cur_num_op % 20 < 19);
-            // volatile int8_t tmp = 0;
+    while (!(*terminate) && cur_num_op < num_op) {
+            hot = (cur_num_op % (HOT_COLD_ACCESS_RATIO + 1) < HOT_COLD_ACCESS_RATIO);
             start = pick_start(hot, thread_index, cur_num_op);
             access_page(tmp, start, cur_num_op);
-        }
-    } else if (hot_ratio_ > 0.9) {
-        while (!(*terminate) && cur_num_op < num_op) {
-            // bool hot = (rand() % 10 >= 0);
-            hot = (cur_num_op % 20 >= 0);
-            // volatile int8_t tmp = 0;
-            start = pick_start(hot, thread_index, cur_num_op);
-            access_page(tmp, start, cur_num_op);
-        }
     }
-    else { // hot_ratio is 0
-        while (!(*terminate) && cur_num_op < num_op) {
-            hot = (cur_num_op % 20 < 0); //always = false when there is no hot pages
-            // volatile int8_t tmp = 0;
-            start = pick_start(hot, thread_index, cur_num_op);
-            access_page(tmp, start, cur_num_op);
-        }
-    }
+    // if (hot_ratio_ >= 0.1 && hot_ratio_ <= 0.9) {
+    //     while (!(*terminate) && cur_num_op < num_op) {
+    //         // bool hot = (rand() % 10 < 9); // 0-8 hot, 9 cold
+    //         hot = (cur_num_op % 20 < 19);
+    //         // volatile int8_t tmp = 0;
+    //         start = pick_start(hot, thread_index, cur_num_op);
+    //         access_page(tmp, start, cur_num_op);
+    //     }
+    // } else if (hot_ratio_ > 0.9) {
+    //     while (!(*terminate) && cur_num_op < num_op) {
+    //         // bool hot = (rand() % 10 >= 0);
+    //         hot = (cur_num_op % 20 >= 0);
+    //         // volatile int8_t tmp = 0;
+    //         start = pick_start(hot, thread_index, cur_num_op);
+    //         access_page(tmp, start, cur_num_op);
+    //     }
+    // }
+    // else { // hot_ratio is 0
+    //     while (!(*terminate) && cur_num_op < num_op) {
+    //         hot = (cur_num_op % 20 < 0); //always = false when there is no hot pages
+    //         // volatile int8_t tmp = 0;
+    //         start = pick_start(hot, thread_index, cur_num_op);
+    //         access_page(tmp, start, cur_num_op);
+    //     }
+    // }
 
     // printf("loop ended\n");
     chrono::time_point<chrono::steady_clock> end_time = chrono::steady_clock::now();
@@ -159,6 +166,15 @@ void update_hot_cold_pages(void) {
         }
     }
 
+    long local_accesses, remote_accesses;
+    local_accesses = hot_prefix_sum[1] * HOT_COLD_ACCESS_RATIO + cold_prefix_sum[1];
+    remote_accesses = (hot_prefix_sum[3] - hot_prefix_sum[1]) * HOT_COLD_ACCESS_RATIO
+                        + cold_prefix_sum[3] - cold_prefix_sum[1];
+    // cout << local_accesses << remote_accesses;
+    suggested_local_remote_access_ratio = double(local_accesses) / double(remote_accesses);
+    perf_stat.open("./perf_stat.txt", ios_base::app);
+    perf_stat << "suggested ratio: " << suggested_local_remote_access_ratio << endl;
+    perf_stat.close();
     //     logfile << "hot pages: ";
     // for (int i = 0; i < 4; ++i)
     //     logfile << hot_pages[i] << " ";
@@ -304,6 +320,43 @@ void buffer_concatenation(bool hot) {
         cold_prefix_sum[3] = i;
     }
 }
+
+void inspect_page_table_size(bool before_alloc, double split_ratio, double hot_ratio, int mode) {
+    if (before_alloc) {
+        perf_stat.open("./perf_stat.txt", ios_base::app);
+        perf_stat << split_ratio << " | " << hot_ratio \
+            << " | " << mode << endl;
+    }
+    char command1[100];
+    char command3[] = "sudo grep AnonHugePages /proc/meminfo >> ./perf_stat.txt ";
+    char command2[] = "sudo cat /proc/meminfo | grep PageTables >> ./perf_stat.txt";
+    sprintf(command1, "sudo cat /proc/%ld/status | grep VmPTE >> ./perf_stat.txt", long(getpid()));
+    // sprintf(command2, "sudo cat /proc/%ld/status | grep VmPTE >> ./perf_stat.txt", long(getpid()));
+
+    pid_t pid1 = fork();
+    if (pid1 < 0) {
+            printf("fork error\n");
+            return;
+    } else if (pid1 == 0) {
+            system(command2);
+            // sleep(3);
+            if (!before_alloc) {
+                sleep(1);
+                system(command3);
+                sleep(1);
+                system(command1);
+                // sleep(3);
+            }
+            _exit(0);
+    } else {
+            wait(NULL);
+            // kill(pid1, SIGKILL);
+    }
+
+    if (!before_alloc)
+        perf_stat.close();
+}
+
 void main_experiment(long num_op, long num_thread, double split_ratio, double hot_ratio, int mode=0) {
 
     hot_ratio_ = hot_ratio;
@@ -330,12 +383,16 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
     else if(mode == 1)
         calculate_pages_local_remote(split_ratio, int64_t(0), ONE_NODE_MEM_SIZE * 2);
     
+    // inspect_page_table_size(true, split_ratio, hot_ratio, mode);
+
     local_hot_buf = mem_alloc_set_numa(local_hot_pages, 0, false);
     local_cold_buf = mem_alloc_set_numa(local_cold_pages, 0, false);
     local_huge_buf = mem_alloc_set_numa(local_huge_pages, 0, true);
     remote_hot_buf = mem_alloc_set_numa(remote_hot_pages, 1, false);
     remote_cold_buf = mem_alloc_set_numa(remote_cold_pages, 1, false);
     remote_huge_buf = mem_alloc_set_numa(remote_huge_pages, 1, true);
+
+    // inspect_page_table_size(false, split_ratio, hot_ratio, mode);
     
     buffer_concatenation(true);
     buffer_concatenation(false);
@@ -370,7 +427,7 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
     // for (int i = 0; i < hot_prefix_sum[3]; ++i)
     //     logfile << hot_buf_concat[i] << " ";
     // logfile << endl;
-    int i = 0;
+    // int i = 0;
     // logfile << "hh" << endl;
     // for (; i < cold_prefix_sum[0]; ++i)
     //     logfile << cold_buf_concat[i] << " ";
@@ -406,9 +463,12 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
         // printf("thread %d: %f\n", thread_index, result_arr[thread_index]);
         sum += result_arr[thread_index];
     }
-
+    // inspect_page_table_size(false, split_ratio, hot_ratio, mode);
     // printf("overall throughput: %f GB/s\n", (sum * DATA_SIZE) / (1L << 30L));
-    printf("| %f\n", (sum * DATA_SIZE) / (1L << 30L));
+    perf_stat.open("./perf_stat.txt", ios_base::app);
+    perf_stat << DATA_SIZE / sizeof(int64_t) << endl;
+    perf_stat.close();
+    printf("| %f\n", (sum * sizeof(int64_t) * 8) / (1L << 30L));
     fflush(stdout);
 
     free(local_hot_buf);
@@ -418,38 +478,6 @@ void main_experiment(long num_op, long num_thread, double split_ratio, double ho
     free(remote_cold_buf);
     free(remote_huge_buf);
 }
-
-void inspect_page_table_size(bool before_exp, double split_ratio, double hot_ratio, int mode) {
-    if (before_exp) {
-        perf_stat.open("./perf_stat.txt", ios_base::app);
-        perf_stat << split_ratio << " | " << hot_ratio_ \
-            << " | " << mode << endl;
-        // perf_stat << "before experiement: " << endl;
-    } else {
-        // perf_stat << "after experiemnt: " << endl;
-    }
-    char command1[100];
-    char command2[] = "sudo cat /proc/meminfo | grep PageTables >> ./perf_stat.txt";
-    sprintf(command1, "sudo cat /proc/%ld/status | grep VmPTE >> ./perf_stat.txt", long(getpid()));
-    // sprintf(command2, "sudo cat /proc/%ld/status | grep VmPTE >> ./perf_stat.txt", long(getpid()));
-
-    pid_t pid1 = fork();
-    if (pid1 < 0) {
-            printf("fork error\n");
-            return;
-    } else if (pid1 == 0) {
-            system(command1);
-            sleep(3);
-            system(command2);
-            exit(0);
-    } else {
-            wait(NULL);
-    }
-
-    if (!before_exp)
-        perf_stat.close();
-}
-
 
 int main(int argc, char *argv[]) {
 
@@ -466,7 +494,7 @@ int main(int argc, char *argv[]) {
     long num_op, num_thread;
     double split_ratio, hot_ratio; // the maximum is 1
 
-    num_op = 50000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx];
+    num_op = 50000000, num_thread = 8, split_ratio = split_ratios[split_idx], hot_ratio = hot_ratios[hot_idx] / 8;
 
     seeds = (unsigned int *)malloc(num_thread * sizeof(unsigned int));
     for (int i = 0; i < num_thread; ++i)
@@ -475,9 +503,7 @@ int main(int argc, char *argv[]) {
     // logfile.open("log.txt");
     // logfile << "mode: " << mode << " | " << "split_ratio: " << split_ratio 
     //     << " | " << "hot_ratio: " << hot_ratio << "\n"; 
-    inspect_page_table_size(true, split_ratio, hot_ratio, mode);
     main_experiment(num_op, num_thread, split_ratio, hot_ratio, mode);
-    inspect_page_table_size(false, split_ratio, hot_ratio, mode);
 
     // logfile.close();
 

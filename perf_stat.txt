@@ -1,132 +1,221 @@
-0 | 0 | 0
-VmPTE:	      76 kB
-PageTables:         8360 kB
-VmPTE:	     196 kB
-PageTables:         8692 kB
-         7,023,337      dTLB-load-misses                                            
-           173,773      dTLB-store-misses                                           
-           376,500      page-faults                                                 
-                 0      major-faults                                                
-           376,500      minor-faults                                                
 
-
-0.1 | 0 | 0
-VmPTE:	      88 kB
-PageTables:         8284 kB
-VmPTE:	     212 kB
-PageTables:         8548 kB
-        48,230,946      dTLB-load-misses                                            
-         3,910,784      dTLB-store-misses                                           
-           683,153      page-faults                                                 
-                 0      major-faults                                                
-           683,153      minor-faults                                                
-
-
-0.2 | 0 | 0
-VmPTE:	      76 kB
-PageTables:         8288 kB
-VmPTE:	     200 kB
-PageTables:         8500 kB
-        89,038,430      dTLB-load-misses                                            
-         7,649,076      dTLB-store-misses                                           
-         1,053,348      page-faults                                                 
-                 0      major-faults                                                
-         1,053,348      minor-faults                                                
-
-
-0.3 | 0 | 0
-VmPTE:	      84 kB
-PageTables:         8308 kB
-VmPTE:	     208 kB
-PageTables:         8636 kB
-       130,985,030      dTLB-load-misses                                            
-        11,404,842      dTLB-store-misses                                           
-         1,509,457      page-faults                                                 
-                 0      major-faults                                                
-         1,509,457      minor-faults                                                
-
-
-0.4 | 0 | 0
-VmPTE:	      84 kB
-PageTables:         8456 kB
-VmPTE:	     208 kB
-PageTables:         8516 kB
-       173,206,088      dTLB-load-misses                                            
-        15,121,349      dTLB-store-misses                                           
-         1,918,752      page-faults                                                 
-                 0      major-faults                                                
-         1,918,752      minor-faults                                                
-
-
-0.5 | 0 | 0
-VmPTE:	      80 kB
-PageTables:         8388 kB
-VmPTE:	     208 kB
-PageTables:         8528 kB
-       215,529,901      dTLB-load-misses                                            
-        18,939,138      dTLB-store-misses                                           
-         2,418,452      page-faults                                                 
-                 0      major-faults                                                
-         2,418,452      minor-faults                                                
-
-
-0.6 | 0 | 0
-VmPTE:	      84 kB
-PageTables:         8332 kB
-VmPTE:	     208 kB
-PageTables:         8520 kB
-       257,208,905      dTLB-load-misses                                            
-        24,062,578      dTLB-store-misses                                           
-         2,734,417      page-faults                                                 
-                 0      major-faults                                                
-         2,734,417      minor-faults                                                
-
-
-0.7 | 0 | 0
-VmPTE:	      92 kB
-PageTables:         8664 kB
-VmPTE:	     220 kB
-PageTables:         8540 kB
-       302,904,376      dTLB-load-misses                                            
-        26,311,932      dTLB-store-misses                                           
-         3,324,880      page-faults                                                 
-                 0      major-faults                                                
-         3,324,880      minor-faults                                                
-
-
-0.8 | 0 | 0
-VmPTE:	      84 kB
-PageTables:         8424 kB
-VmPTE:	     204 kB
-PageTables:         8516 kB
-       342,894,334      dTLB-load-misses                                            
-        30,092,114      dTLB-store-misses                                           
-         3,593,577      page-faults                                                 
-                 0      major-faults                                                
-         3,593,577      minor-faults                                                
-
-
-0.9 | 0 | 0
-VmPTE:	      80 kB
-PageTables:         8400 kB
-VmPTE:	     204 kB
-PageTables:         8812 kB
-       384,709,832      dTLB-load-misses                                            
-        33,940,154      dTLB-store-misses                                           
-         4,101,719      page-faults                                                 
-                 0      major-faults                                                
-         4,101,719      minor-faults                                                
-
-
-1 | 0 | 0
-VmPTE:	      80 kB
-PageTables:         8432 kB
-VmPTE:	     204 kB
-PageTables:         8656 kB
-       438,031,843      dTLB-load-misses                                            
-        37,808,077      dTLB-store-misses                                           
-         4,521,014      page-faults                                                 
-                 0      major-faults                                                
-         4,521,014      minor-faults                                                
-
-
+suggested ratio: 1
+512
+suggested ratio: 1.24533
+512
+suggested ratio: 1.55676
+512
+suggested ratio: 1.96508
+512
+suggested ratio: 2.52386
+512
+suggested ratio: 3.33381
+512
+suggested ratio: 3.41355
+512
+suggested ratio: 3.42892
+512
+suggested ratio: 3.44428
+512
+suggested ratio: 3.4596
+512
+suggested ratio: 3.47496
+512
+suggested ratio: 1
+512
+suggested ratio: 1.32638
+512
+suggested ratio: 1.77524
+512
+suggested ratio: 2.43014
+512
+suggested ratio: 3.47857
+512
+suggested ratio: 5.42064
+512
+suggested ratio: 5.82691
+512
+suggested ratio: 5.85769
+512
+suggested ratio: 5.88847
+512
+suggested ratio: 5.9192
+512
+suggested ratio: 5.94997
+512
+suggested ratio: 1
+512
+suggested ratio: 1.35869
+512
+suggested ratio: 1.8726
+512
+suggested ratio: 2.67107
+512
+suggested ratio: 4.0835
+512
+suggested ratio: 7.24716
+512
+suggested ratio: 8.39495
+512
+suggested ratio: 8.40247
+512
+suggested ratio: 8.40999
+512
+suggested ratio: 8.41746
+512
+suggested ratio: 8.42498
+512
+suggested ratio: 1
+512
+suggested ratio: 1.37871
+512
+suggested ratio: 1.93108
+512
+suggested ratio: 2.81296
+512
+suggested ratio: 4.44452
+512
+suggested ratio: 8.48838
+512
+suggested ratio: 10.8084
+512
+suggested ratio: 10.8312
+512
+suggested ratio: 10.8542
+512
+suggested ratio: 10.8771
+512
+suggested ratio: 10.9
+512
+suggested ratio: 1
+512
+suggested ratio: 1.38481
+512
+suggested ratio: 1.95332
+512
+suggested ratio: 2.87768
+512
+suggested ratio: 4.64413
+512
+suggested ratio: 9.3662
+512
+suggested ratio: 13.3764
+512
+suggested ratio: 13.376
+512
+suggested ratio: 13.3757
+512
+suggested ratio: 13.3753
+512
+suggested ratio: 13.375
+512
+suggested ratio: 1
+512
+suggested ratio: 1.39122
+512
+suggested ratio: 1.97174
+512
+suggested ratio: 2.92047
+512
+suggested ratio: 4.75752
+512
+suggested ratio: 9.80357
+512
+suggested ratio: 15.7897
+512
+suggested ratio: 15.8048
+512
+suggested ratio: 15.8199
+512
+suggested ratio: 15.8349
+512
+suggested ratio: 15.85
+512
+suggested ratio: 1
+512
+suggested ratio: 1.39437
+512
+suggested ratio: 1.97952
+512
+suggested ratio: 2.939
+512
+suggested ratio: 4.80454
+512
+suggested ratio: 9.98155
+512
+suggested ratio: 18.2031
+512
+suggested ratio: 18.2336
+512
+suggested ratio: 18.2641
+512
+suggested ratio: 18.2945
+512
+suggested ratio: 18.325
+512
+suggested ratio: 1
+512
+suggested ratio: 1.39183
+512
+suggested ratio: 1.97352
+512
+suggested ratio: 2.92808
+512
+suggested ratio: 4.78322
+512
+suggested ratio: 9.95132
+512
+suggested ratio: 20.7712
+512
+suggested ratio: 20.7784
+512
+suggested ratio: 20.7856
+512
+suggested ratio: 20.7928
+512
+suggested ratio: 20.8
+512
+suggested ratio: 1
+512
+suggested ratio: 1.39082
+512
+suggested ratio: 1.9705
+512
+suggested ratio: 2.91878
+512
+suggested ratio: 4.75111
+512
+suggested ratio: 9.78306
+512
+suggested ratio: 23.1845
+512
+suggested ratio: 23.2072
+512
+suggested ratio: 23.2298
+512
+suggested ratio: 23.2524
+512
+suggested ratio: 23.275
+512
+suggested ratio: 1
+512
+suggested ratio: 1.38633
+512
+suggested ratio: 1.95807
+512
+suggested ratio: 2.88832
+512
+suggested ratio: 4.67558
+512
+suggested ratio: 9.50307
+512
+suggested ratio: 25.7526
+512
+suggested ratio: 25.7519
+512
+suggested ratio: 25.7513
+512
+suggested ratio: 25.7507
+512
+suggested ratio: 25.75
+512

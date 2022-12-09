@@ -1,13 +1,14 @@
-# started on Thu Dec  8 12:11:07 2022
+# started on Thu Dec  8 22:47:19 2022
 
 
- Performance counter stats for './test 10 3 0':
+ Performance counter stats for './test 7 8 2':
 
-       438,031,843      dTLB-load-misses                                            
-        37,808,077      dTLB-store-misses                                           
-         4,521,014      page-faults                                                 
-                 0      major-faults                                                
-         4,521,014      minor-faults                                                
+           483,142      mem_load_uops_l3_miss_retired.local_dram                                     (49.12%)
+            11,176      mem_load_uops_l3_miss_retired.remote_dram                                     (50.96%)
+           337,057      dTLB-load-misses                                              (50.88%)
+           691,368      dTLB-store-misses                                             (49.04%)
+            76,252      page-faults                                                 
+   <not supported>      dTLB-prefetch-misses                                        
 
-      22.983328879 seconds time elapsed
+       0.217963779 seconds time elapsed
 
